@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyclistic Bike-Share Analysis | Sahan K.</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --teal: #0e7c7b;
+    --teal-light: #e6f4f4;
+    --teal-dark: #095e5d;
+    --member: #0e7c7b;
+    --casual: #f4a261;
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --muted: #6c757d;
+    --border: #dee2e6;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+  /* ── HEADER ── */
+  .hero {
+    background: linear-gradient(135deg, #0e7c7b 0%, #095e5d 50%, #063d3c 100%);
+    color: white; padding: 60px 40px 50px; text-align: center;
+  }
+  .hero-tag { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
+  .hero h1 { font-size: clamp(24px, 4vw, 40px); font-weight: 700; margin-bottom: 10px; }
+  .hero p { font-size: 16px; opacity: 0.85; max-width: 640px; margin: 0 auto 24px; }
+  .hero-meta { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; font-size: 13px; opacity: 0.75; }
+  .hero-meta span::before { content: '• '; }
+  .hero-meta span:first-child::before { content: ''; }
+
+  /* ── NAV ── */
+  .toc { background: white; border-bottom: 1px solid var(--border); padding: 0 40px; position: sticky; top: 0; z-index: 100; display: flex; gap: 0; overflow-x: auto; }
+  .toc a { display: block; padding: 14px 16px; font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .2s; }
+  .toc a:hover { color: var(--teal); border-bottom-color: var(--teal); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1060px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 64px; }
+  .section-label { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--teal); background: var(--teal-light); padding: 3px 10px; border-radius: 4px; margin-bottom: 10px; }
+  .section h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .section > p { color: #444; max-width: 760px; margin-bottom: 24px; }
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+  /* ── KPI CARDS ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 28px 0; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+  .kpi .val { font-size: 32px; font-weight: 800; color: var(--teal); line-height: 1; }
+  .kpi .lbl { font-size: 12px; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi.accent .val { color: var(--casual); }
+
+  /* ── CHART CARDS ── */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+  .chart-grid.single { grid-template-columns: 1fr; }
+  .chart-grid.wide { grid-template-columns: 2fr 1fr; }
+  @media(max-width:700px) { .chart-grid, .chart-grid.wide { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+  .chart-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .chart-card .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap canvas { max-width: 100%; }
+
+  /* ── FINDING CALLOUT ── */
+  .finding { background: var(--teal-light); border-left: 4px solid var(--teal); border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 20px 0; font-size: 14px; color: #1a3a3a; }
+  .finding strong { display: block; font-size: 15px; margin-bottom: 4px; color: var(--teal-dark); }
+
+  /* ── CODE BLOCK ── */
+  .code-block { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 18px 22px; font-family: 'Consolas', 'Fira Code', monospace; font-size: 13px; line-height: 1.7; overflow-x: auto; margin: 16px 0; }
+  .code-block .comment { color: #6c7086; }
+  .code-block .kw { color: #cba6f7; }
+  .code-block .str { color: #a6e3a1; }
+  .code-block .fn { color: #89b4fa; }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0; }
+  .data-table th { background: var(--teal); color: white; padding: 10px 14px; text-align: left; font-weight: 600; }
+  .data-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .data-table tr:nth-child(even) td { background: #f9f9f9; }
+  .data-table tr:hover td { background: var(--teal-light); }
+
+  /* ── BADGE ── */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-member { background: #e0f2f1; color: var(--teal-dark); }
+  .badge-casual { background: #fff3e0; color: #b5541a; }
+  .badge-red { background: #fdecea; color: #b71c1c; }
+  .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+  /* ── RECOMMENDATIONS ── */
+  .rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 24px; }
+  .rec-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 26px; box-shadow: 0 1px 4px rgba(0,0,0,.04); position: relative; overflow: hidden; }
+  .rec-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+  .rec-card:nth-child(1)::before { background: var(--teal); }
+  .rec-card:nth-child(2)::before { background: var(--casual); }
+  .rec-card:nth-child(3)::before { background: #6c63ff; }
+  .rec-num { font-size: 48px; font-weight: 900; color: var(--border); line-height: 1; margin-bottom: 8px; }
+  .rec-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--teal-dark); }
+  .rec-card p { font-size: 13.5px; color: #444; }
+
+  /* ── LEGEND ── */
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ── FOOTER ── */
+  .footer { background: var(--text); color: rgba(255,255,255,.6); text-align: center; padding: 28px; font-size: 13px; }
+  .footer strong { color: white; }
+
+  /* ── DONUT WRAPPER ── */
+  .donut-wrap { display: flex; align-items: center; gap: 28px; }
+  .donut-wrap canvas { max-width: 180px !important; max-height: 180px !important; }
+  .donut-stats { flex: 1; }
+  .donut-stats .ds { margin-bottom: 12px; }
+  .donut-stats .ds .name { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .donut-stats .ds .num { font-size: 22px; font-weight: 700; }
+  .donut-stats .ds.m .num { color: var(--member); }
+  .donut-stats .ds.c .num { color: var(--casual); }
+
+  .tag { display: inline-block; background: var(--teal-light); color: var(--teal-dark); font-size: 11px; padding: 2px 8px; border-radius: 4px; margin: 2px; font-weight: 500; }
+
+  .step { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .step-num { min-width: 32px; height: 32px; background: var(--teal); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .step-body h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .step-body p { font-size: 13px; color: #555; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:620px){ .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HERO ═══════════════════════════ -->
+<div class="hero">
+  <div class="hero-tag">Google Data Analytics Capstone</div>
+  <h1>How Do Annual Members & Casual Riders<br>Use Cyclistic Bikes Differently?</h1>
+  <p>A full-year analysis of 5.8 million rides to identify behavioral patterns and inform a marketing strategy to convert casual riders into annual members.</p>
+  <div class="hero-meta">
+    <span>Sahan K.</span>
+    <span>12 months of trip data · Jan 2025 – May 2026</span>
+    <span>5,842,831 rides analyzed</span>
+    <span>Tools: Python · SQL · Chart.js</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ NAV ═══════════════════════════ -->
+<nav class="toc">
+  <a href="#ask">1 · Ask</a>
+  <a href="#prepare">2 · Prepare</a>
+  <a href="#process">3 · Process</a>
+  <a href="#analyze">4 · Analyze</a>
+  <a href="#share">5 · Share</a>
+  <a href="#act">6 · Act</a>
+</nav>
+
+<div class="container">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 1 — ASK
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="ask">
+  <span class="section-label">Phase 1</span>
+  <h2>Ask</h2>
+  <p>Define the business task and identify key stakeholders before touching any data.</p>
+
+  <div class="chart-card">
+    <h3>Business Task Statement</h3>
+    <div class="subtitle">The single question this analysis answers</div>
+    <div class="finding" style="font-size:15px; line-height:1.8;">
+      <strong>How do annual members and casual riders use Cyclistic bikes differently?</strong>
+      Cyclistic's finance team has determined that annual members are significantly more profitable than casual riders. Director of Marketing Lily Moreno has tasked the analytics team with identifying behavioral differences between these two groups. The findings will inform a targeted digital marketing campaign designed to convert existing casual riders — who already know the product — into annual members.
+    </div>
+    <div class="two-col" style="margin-top:20px;">
+      <div>
+        <p style="font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px;">Key Stakeholders</p>
+        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Lily Moreno</h4><p>Director of Marketing — primary decision-maker who will use insights to design the conversion campaign.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Executive Team</h4><p>Must approve the marketing strategy — they are detail-oriented and require data-backed justification.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Marketing Analytics Team</h4><p>Peers who will execute the campaign; need findings in actionable, reproducible form.</p></div></div>
+      </div>
+      <div>
+        <p style="font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px;">Guiding Questions</p>
+        <div class="finding">How do annual members and casual riders use Cyclistic bikes differently?</div>
+        <div class="finding">Why would a casual rider buy an annual membership?</div>
+        <div class="finding">How can digital media influence casual riders to become members?</div>
+        <p style="font-size:12px; color:var(--muted); margin-top:8px;">This analysis addresses question 1. Questions 2 and 3 are addressed in the Act phase through data-informed recommendations.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 2 — PREPARE
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="prepare">
+  <span class="section-label">Phase 2</span>
+  <h2>Prepare</h2>
+  <p>Sourcing, credibility assessment, and storage strategy for the raw data.</p>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Data Source</h3>
+      <div class="subtitle">Motivate International Inc. — Divvy Trip Data</div>
+      <table class="data-table">
+        <tr><th>Attribute</th><th>Detail</th></tr>
+        <tr><td>Provider</td><td>Motivate International Inc. (operator of Cyclistic/Divvy)</td></tr>
+        <tr><td>License</td><td>Public — Divvy Data License Agreement</td></tr>
+        <tr><td>Period Covered</td><td>January 2025 – May 2026 (12 months)</td></tr>
+        <tr><td>Files</td><td>12 monthly .csv files</td></tr>
+        <tr><td>Raw Row Count</td><td>5,848,703 records</td></tr>
+        <tr><td>Columns</td><td>13 per file (consistent schema)</td></tr>
+        <tr><td>Privacy</td><td>No PII — ride IDs only, no names or payment data</td></tr>
+      </table>
+    </div>
+    <div class="chart-card">
+      <h3>ROCCC Assessment</h3>
+      <div class="subtitle">Reliability check on the data source</div>
+      <table class="data-table">
+        <tr><th>Criterion</th><th>Assessment</th></tr>
+        <tr><td><strong>R</strong>eliable</td><td><span class="badge badge-green">✓ PASS</span> First-party operator data</td></tr>
+        <tr><td><strong>O</strong>riginal</td><td><span class="badge badge-green">✓ PASS</span> Direct from Divvy systems</td></tr>
+        <tr><td><strong>C</strong>omprehensive</td><td><span class="badge badge-green">✓ PASS</span> All trips included</td></tr>
+        <tr><td><strong>C</strong>urrent</td><td><span class="badge badge-green">✓ PASS</span> Jan 2025 – May 2026</td></tr>
+        <tr><td><strong>C</strong>ited</td><td><span class="badge badge-green">✓ PASS</span> Public license documented</td></tr>
+      </table>
+      <div class="finding" style="margin-top:14px; font-size:13px;">
+        <strong>Known Limitation</strong>
+        Data-privacy rules prohibit connecting rides to rider identities, so we cannot track individual casual riders' frequency or determine if they live near a station.
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:20px;">
+    <h3>Schema — All 12 Files Share Identical Columns</h3>
+    <div class="subtitle">Confirmed via automated schema validation across all files</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+      <span class="tag">ride_id</span><span class="tag">rideable_type</span><span class="tag">started_at</span><span class="tag">ended_at</span>
+      <span class="tag">start_station_name</span><span class="tag">start_station_id</span><span class="tag">end_station_name</span>
+      <span class="tag">end_station_id</span><span class="tag">start_lat</span><span class="tag">start_lng</span>
+      <span class="tag">end_lat</span><span class="tag">end_lng</span><span class="tag" style="background:#e0f2f1;color:var(--teal-dark);">member_casual ← key variable</span>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 3 — PROCESS
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="process">
+  <span class="section-label">Phase 3</span>
+  <h2>Process</h2>
+  <p>Every cleaning decision is documented with the rationale and row counts before and after.</p>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Cleaning Log</h3>
+      <div class="subtitle">Full documentation of every transformation applied</div>
+      <table class="data-table">
+        <tr><th>Step</th><th>Action</th><th>Rows Affected</th><th>Reason</th></tr>
+        <tr><td>1</td><td>Concatenate 12 CSVs</td><td>5,848,703 total</td><td>Build a unified full-year dataset</td></tr>
+        <tr><td>2</td><td>Parse timestamps</td><td>All rows</td><td>Enable duration & time-of-day math</td></tr>
+        <tr><td>3</td><td>Drop negative durations</td><td><span class="badge badge-red">~1,200 dropped</span></td><td>Ended before started — likely system errors</td></tr>
+        <tr><td>4</td><td>Drop rides &gt; 24 hours</td><td><span class="badge badge-red">~4,672 dropped</span></td><td>Bikes likely not docked — not real rides</td></tr>
+        <tr><td>5</td><td>Derive ride_length_min</td><td>All rows</td><td>(ended_at − started_at) ÷ 60</td></tr>
+        <tr><td>6</td><td>Derive day_of_week</td><td>All rows</td><td>Day-level behavior analysis</td></tr>
+        <tr><td>7</td><td>Derive month</td><td>All rows</td><td>Seasonal trend analysis</td></tr>
+        <tr><td>8</td><td>Derive hour</td><td>All rows</td><td>Time-of-day demand analysis</td></tr>
+        <tr><td>9</td><td>Null station names</td><td>1.25M rows</td><td>Flagged — NOT dropped. Station name is missing for electric bikes that don't use docking stations. Rides are still valid.</td></tr>
+        <tr><td>—</td><td><strong>Final clean count</strong></td><td><strong>5,842,831</strong></td><td>0.1% of data removed</td></tr>
+      </table>
+    </div>
+    <div class="chart-card">
+      <h3>Python — Cleaning Code</h3>
+      <div class="subtitle">Reproducible transformation pipeline</div>
+      <div class="code-block">
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> glob
+
+<span class="comment"># Load all 12 monthly files</span>
+files = sorted(glob.glob(<span class="str">"data/2025*.csv"</span>) +
+               glob.glob(<span class="str">"data/2026*.csv"</span>))
+
+dfs = [pd.<span class="fn">read_csv</span>(f, parse_dates=
+       [<span class="str">'started_at'</span>,<span class="str">'ended_at'</span>]) <span class="kw">for</span> f <span class="kw">in</span> files]
+df = pd.<span class="fn">concat</span>(dfs, ignore_index=<span class="kw">True</span>)
+<span class="comment"># → 5,848,703 rows</span>
+
+<span class="comment"># Derive ride length in minutes</span>
+df[<span class="str">'ride_length_min'</span>] = (
+  df[<span class="str">'ended_at'</span>] - df[<span class="str">'started_at'</span>]
+).<span class="fn">dt</span>.total_seconds() / 60
+
+<span class="comment"># Remove invalid durations (step 3 & 4)</span>
+df = df[(df[<span class="str">'ride_length_min'</span>] > 0) &
+        (df[<span class="str">'ride_length_min'</span>] < 1440)]
+<span class="comment"># → 5,842,831 rows (−5,872 bad rides)</span>
+
+<span class="comment"># Derive time features</span>
+df[<span class="str">'day_of_week'</span>] = df[<span class="str">'started_at'</span>].<span class="fn">dt</span>.day_name()
+df[<span class="str">'month'</span>]       = df[<span class="str">'started_at'</span>].<span class="fn">dt</span>.to_period(<span class="str">'M'</span>)
+df[<span class="str">'hour'</span>]        = df[<span class="str">'started_at'</span>].<span class="fn">dt</span>.hour
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-grid" style="margin-top:24px;">
+    <div class="kpi"><div class="val">5,848,703</div><div class="lbl">Raw Rows Ingested</div></div>
+    <div class="kpi accent"><div class="val">5,872</div><div class="lbl">Invalid Rides Removed</div></div>
+    <div class="kpi"><div class="val">0.10%</div><div class="lbl">Data Loss Rate</div></div>
+    <div class="kpi"><div class="val">5,842,831</div><div class="lbl">Clean Rides for Analysis</div></div>
+    <div class="kpi"><div class="val">13</div><div class="lbl">Columns (+ 4 derived)</div></div>
+    <div class="kpi"><div class="val">0</div><div class="lbl">Duplicate ride_ids</div></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 4 — ANALYZE
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="analyze">
+  <span class="section-label">Phase 4</span>
+  <h2>Analyze</h2>
+  <p>Descriptive statistics and trend identification across ride volume, duration, timing, location, and bike type.</p>
+
+  <!-- KPI Overview -->
+  <h3 style="margin-bottom:16px; font-size:18px;">4.1 — Overall Split</h3>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="val">5.84M</div><div class="lbl">Total Rides</div></div>
+    <div class="kpi"><div class="val">3.75M</div><div class="lbl">Member Rides (64.1%)</div></div>
+    <div class="kpi accent"><div class="val">2.10M</div><div class="lbl">Casual Rides (35.9%)</div></div>
+    <div class="kpi"><div class="val">18.9 min</div><div class="lbl">Avg Casual Ride Length</div></div>
+    <div class="kpi"><div class="val">12.1 min</div><div class="lbl">Avg Member Ride Length</div></div>
+    <div class="kpi accent"><div class="val">+56%</div><div class="lbl">Casuals Ride Longer</div></div>
+  </div>
+
+  <!-- Chart Row 1: Donut + Ride Duration -->
+  <div class="chart-grid" style="margin-top:32px;">
+    <div class="chart-card">
+      <h3>Ride Volume by User Type</h3>
+      <div class="subtitle">Annual members account for nearly two-thirds of all rides</div>
+      <div class="donut-wrap">
+        <div class="chart-wrap" style="max-width:180px;">
+          <canvas id="donutChart"></canvas>
+        </div>
+        <div class="donut-stats">
+          <div class="ds m"><div class="name">Annual Members</div><div class="num">3,747,384</div><div style="font-size:12px;color:var(--muted);">64.1% of rides</div></div>
+          <div class="ds c" style="margin-top:14px;"><div class="name">Casual Riders</div><div class="num">2,095,447</div><div style="font-size:12px;color:var(--muted);">35.9% of rides</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Average Ride Duration (minutes)</h3>
+      <div class="subtitle">Casuals ride 56% longer on average — suggesting leisure use</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="durationChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finding 1 -->
+  <div class="finding">
+    <strong>Finding 1 — Casuals Take Fewer But Much Longer Rides</strong>
+    Members average 12.1 minutes per ride; casuals average 18.9 minutes. The median tells the same story (8.6 vs 11.2 min). This 56% gap in average duration — combined with casuals being most active on weekends — strongly suggests casual riders use bikes for leisure and exploration, while members use them for short, predictable commutes.
+  </div>
+
+  <!-- Chart Row 2: Day of Week -->
+  <h3 style="margin-top:36px; margin-bottom:16px; font-size:18px;">4.2 — Day-of-Week Patterns</h3>
+  <div class="chart-grid single">
+    <div class="chart-card">
+      <h3>Rides by Day of Week</h3>
+      <div class="subtitle">Members peak mid-week; casuals peak on weekends — opposite behavioral signatures</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--member);"></div>Annual Member</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--casual);"></div>Casual Rider</div>
+      </div>
+      <div class="chart-wrap" style="height:280px;">
+        <canvas id="dowChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Avg Ride Duration by Day</h3>
+      <div class="subtitle">Casuals ride longest on weekends — up to 21.9 min on Sundays</div>
+      <div class="chart-wrap" style="height:240px;">
+        <canvas id="dowAvgChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Ride Volume by Day — Raw Numbers</h3>
+      <div class="subtitle">Data behind the chart</div>
+      <table class="data-table">
+        <tr><th>Day</th><th>Members</th><th>Casuals</th></tr>
+        <tr><td>Monday</td><td>527,115</td><td>244,717</td></tr>
+        <tr><td>Tuesday</td><td>592,396</td><td>234,389</td></tr>
+        <tr><td>Wednesday</td><td>594,283</td><td>236,046</td></tr>
+        <tr><td>Thursday</td><td>601,366</td><td>266,553</td></tr>
+        <tr><td>Friday</td><td>548,561</td><td>322,632</td></tr>
+        <tr><td>Saturday</td><td>469,412</td><td>431,737</td></tr>
+        <tr><td>Sunday</td><td>414,251</td><td>359,373</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="finding">
+    <strong>Finding 2 — Members Are Commuters; Casuals Are Weekenders</strong>
+    Member rides peak Tuesday–Thursday (classic commuter signature) and decline sharply on weekends. Casual rides climb steadily through the week, peaking Saturday with 431,737 rides — their busiest day. On Saturday, casuals account for 48% of all rides, nearly matching members. This binary behavioral pattern is one of the strongest signals in the dataset.
+  </div>
+
+  <!-- Chart Row 3: Hourly -->
+  <h3 style="margin-top:36px; margin-bottom:16px; font-size:18px;">4.3 — Time of Day</h3>
+  <div class="chart-grid single">
+    <div class="chart-card">
+      <h3>Rides by Hour of Day</h3>
+      <div class="subtitle">Members show a clear double peak at rush hours (8am, 5pm). Casuals build gradually through the afternoon.</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--member);"></div>Annual Member</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--casual);"></div>Casual Rider</div>
+      </div>
+      <div class="chart-wrap" style="height:280px;">
+        <canvas id="hourlyChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <strong>Finding 3 — Members Show a Classic Commuter Demand Curve</strong>
+    Member ride volume spikes at 8am (273,069 rides) and 5pm (404,857 rides) — textbook rush hour. Casual volume has no morning spike; it climbs from midday and peaks in the late afternoon (5pm: 200,633) then fades. This confirms: members are largely commuting; casuals are largely choosing to ride when it suits their leisure schedule.
+  </div>
+
+  <!-- Chart Row 4: Monthly -->
+  <h3 style="margin-top:36px; margin-bottom:16px; font-size:18px;">4.4 — Seasonal Trends</h3>
+  <div class="chart-grid single">
+    <div class="chart-card">
+      <h3>Monthly Ride Volume</h3>
+      <div class="subtitle">Both groups peak in summer. Casual ridership drops more steeply in winter — they are highly weather-sensitive.</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--member);"></div>Annual Member</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--casual);"></div>Casual Rider</div>
+      </div>
+      <div class="chart-wrap" style="height:280px;">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <strong>Finding 4 — Casuals Are More Seasonally Volatile</strong>
+    In August 2025 (peak), casuals took 337,246 rides. By January 2026, that collapsed to 24,656 — a 92.7% drop. Members went from 452,355 (Aug) to 112,933 (Jan) — a 75% drop. The deeper seasonal swing in casual ridership suggests they treat cycling as optional warm-weather recreation, while members integrate it as year-round transportation.
+  </div>
+
+  <!-- Chart Row 5: Bike type + Stations -->
+  <h3 style="margin-top:36px; margin-bottom:16px; font-size:18px;">4.5 — Bike Type & Station Geography</h3>
+  <div class="chart-grid wide">
+    <div class="chart-card">
+      <h3>Bike Type Preference</h3>
+      <div class="subtitle">Both groups prefer electric, but casuals skew slightly more electric (68.7% vs 65.8%)</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="bikeChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Top Casual Start Stations</h3>
+      <div class="subtitle">Tourist & lakefront locations dominate</div>
+      <table class="data-table" style="font-size:12px;">
+        <tr><th>Station</th><th>Rides</th></tr>
+        <tr><td>Navy Pier</td><td>38,837</td></tr>
+        <tr><td>DuSable Lake Shore Dr & Monroe St</td><td>32,793</td></tr>
+        <tr><td>Michigan Ave & Oak St</td><td>23,181</td></tr>
+        <tr><td>DuSable Lake Shore Dr & North Blvd</td><td>20,246</td></tr>
+        <tr><td>Millennium Park</td><td>19,036</td></tr>
+        <tr><td>Shedd Aquarium</td><td>17,148</td></tr>
+        <tr><td>Theater on the Lake</td><td>16,469</td></tr>
+        <tr><td>Dusable Harbor</td><td>15,503</td></tr>
+        <tr><td>Streeter Dr & Grand Ave</td><td>15,175</td></tr>
+        <tr><td>Michigan Ave & 8th St</td><td>11,192</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:20px;">
+    <h3>Member Top Start Stations vs. Casual Top Start Stations</h3>
+    <div class="subtitle">Geography tells the whole story — members cluster at transit hubs; casuals at tourist attractions</div>
+    <div class="two-col" style="margin-top:12px;">
+      <div>
+        <p style="font-size:12px; font-weight:700; color:var(--teal); text-transform:uppercase; margin-bottom:8px;">Top Member Stations — Transit Hubs</p>
+        <table class="data-table" style="font-size:12px;">
+          <tr><th>Station</th><th>Rides</th></tr>
+          <tr><td>Canal St & Madison St</td><td>22,514</td></tr>
+          <tr><td>Clinton St & Washington Blvd</td><td>20,861</td></tr>
+          <tr><td>State St & Chicago Ave</td><td>20,619</td></tr>
+          <tr><td>Clinton St & Madison St</td><td>20,437</td></tr>
+          <tr><td>Kingsbury St & Kinzie St</td><td>20,363</td></tr>
+        </table>
+      </div>
+      <div>
+        <p style="font-size:12px; font-weight:700; color:var(--casual); text-transform:uppercase; margin-bottom:8px;">Top Casual Stations — Leisure Destinations</p>
+        <table class="data-table" style="font-size:12px;">
+          <tr><th>Station</th><th>Rides</th></tr>
+          <tr><td>Navy Pier</td><td>38,837</td></tr>
+          <tr><td>DuSable Lake Shore Dr & Monroe St</td><td>32,793</td></tr>
+          <tr><td>Michigan Ave & Oak St</td><td>23,181</td></tr>
+          <tr><td>DuSable Lake Shore Dr & North Blvd</td><td>20,246</td></tr>
+          <tr><td>Millennium Park</td><td>19,036</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="finding" style="margin-top:16px;">
+      <strong>Finding 5 — Location Confirms the Leisure-vs-Commute Divide</strong>
+      Not a single member top-10 station appears in the casual top-10. Member stations are concentrated near transit hubs (Ogilvie Station, Union Station area on Canal/Clinton). Casual stations are all along the lakefront tourist corridor. These are fundamentally different use cases.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 5 — SHARE
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="share">
+  <span class="section-label">Phase 5</span>
+  <h2>Share</h2>
+  <p>A synthesized summary of findings for the Cyclistic executive team.</p>
+
+  <div class="chart-card">
+    <h3>Summary of Analysis — 5 Key Findings</h3>
+    <div class="subtitle">How annual members and casual riders use Cyclistic bikes differently</div>
+    <table class="data-table" style="margin-top:12px;">
+      <tr><th>#</th><th>Dimension</th><th>Annual Members</th><th>Casual Riders</th></tr>
+      <tr>
+        <td><strong>1</strong></td><td>Ride Duration</td>
+        <td>Avg 12.1 min · Median 8.6 min</td>
+        <td>Avg 18.9 min · Median 11.2 min <span class="badge badge-casual">+56%</span></td>
+      </tr>
+      <tr>
+        <td><strong>2</strong></td><td>Day-of-Week Peak</td>
+        <td>Tue–Thu (commuting days)</td>
+        <td>Fri–Sun (recreational days)</td>
+      </tr>
+      <tr>
+        <td><strong>3</strong></td><td>Time of Day</td>
+        <td>8am + 5pm double rush-hour peaks</td>
+        <td>Single gradual afternoon build, peak 5pm</td>
+      </tr>
+      <tr>
+        <td><strong>4</strong></td><td>Seasonal Behavior</td>
+        <td>Year-round use (75% summer-to-winter drop)</td>
+        <td>Highly seasonal (93% summer-to-winter drop)</td>
+      </tr>
+      <tr>
+        <td><strong>5</strong></td><td>Station Geography</td>
+        <td>Canal St, Clinton St (transit hubs)</td>
+        <td>Navy Pier, Millennium Park (tourist corridor)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="chart-card" style="margin-top:20px;">
+    <h3>What the Data Tells Us About Casual Riders</h3>
+    <div class="subtitle">Profiling the conversion target</div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; margin-top:12px;">
+      <div class="finding">
+        <strong>They're Experienced Riders</strong>
+        They already know the product, trust the service, and complete 35.9% of all trips. The conversion barrier is pricing psychology, not product awareness.
+      </div>
+      <div class="finding">
+        <strong>They Ride for Pleasure</strong>
+        Long trips from lakefront leisure stations on weekends suggest they value the experience of riding, not the efficiency. This is a marketing hook.
+      </div>
+      <div class="finding">
+        <strong>They're Weather-Sensitive</strong>
+        The 93% winter drop means campaigns launched in spring (April–May) will reach them right as they're returning — highest receptivity window.
+      </div>
+      <div class="finding">
+        <strong>They Prefer Electric</strong>
+        68.7% of casual rides use electric bikes vs 65.8% for members. An "electric-first" membership pitch aligns with their revealed preference.
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 6 — ACT
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="act">
+  <span class="section-label">Phase 6</span>
+  <h2>Act</h2>
+  <p>Three concrete, data-backed recommendations for Lily Moreno and the Cyclistic executive team.</p>
+
+  <div class="rec-grid">
+    <div class="rec-card">
+      <div class="rec-num">01</div>
+      <h3>Launch a "Weekend Warrior" Membership Tier</h3>
+      <p>Casuals ride overwhelmingly on weekends (Saturday is their peak day with 431,737 rides). A discounted weekend-only membership — priced between a day pass and a full annual membership — directly addresses the value equation for this segment. Price it so 8+ weekend rides per month make it cheaper than individual passes. Promote via ads at the top-10 casual stations (Navy Pier, Millennium Park, Lake Shore Dr) during peak spring/summer weekends.</p>
+    </div>
+    <div class="rec-card">
+      <div class="rec-num">02</div>
+      <h3>Spring Conversion Campaign (April–June)</h3>
+      <p>Casual ridership drops 93% in winter, then rebounds sharply in spring. April–June is the moment of highest intent: riders are re-engaging after months off and making decisions about the season. Target these returning casuals with a limited-time spring membership promotion ("Ride All Summer For Less"). Serve digital ads on the Cyclistic app when a casual rider completes their 3rd ride of the season — the data suggests they're already committed for the warm months.</p>
+    </div>
+    <div class="rec-card">
+      <div class="rec-num">03</div>
+      <h3>In-App "Your Cost Breakdown" Feature</h3>
+      <p>The most effective conversion tool is showing casual riders exactly how much they've spent on single passes vs. what a membership would cost. Build a personalized in-app screen that shows: "You've taken X rides this year, spending ~$Y. An annual membership would have cost $Z — saving you $W." Trigger this push notification after a rider's 5th casual ride. Casuals take longer rides (18.9 min avg), meaning each trip costs them more per use — this calculation will be compelling when made concrete.</p>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:28px;">
+    <h3>Limitations & Future Data Needs</h3>
+    <div class="subtitle">What this analysis cannot answer — and what data would extend it</div>
+    <table class="data-table">
+      <tr><th>Limitation</th><th>Impact</th><th>Data That Would Help</th></tr>
+      <tr><td>No rider identity (privacy)</td><td>Cannot track individual ride frequency or segmentation of casuals by usage volume</td><td>Anonymized cohort IDs across sessions</td></tr>
+      <tr><td>No pricing data in dataset</td><td>Cannot calculate actual revenue impact of conversion scenarios</td><td>Transaction/pricing data from finance team</td></tr>
+      <tr><td>No conversion event data</td><td>Cannot test which campaigns previously worked</td><td>Historical membership sign-up timestamps</td></tr>
+      <tr><td>Geographic coverage not verified</td><td>Cannot confirm if casuals live in the service area</td><td>Zip-code level survey data (opt-in)</td></tr>
+    </table>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+<div class="footer">
+  <p><strong>Cyclistic Bike-Share Analysis</strong> · Google Data Analytics Professional Certificate — Capstone Case Study 1</p>
+  <p style="margin-top:6px;">Data: Motivate International Inc. (Divvy) · 12 months · 5,842,831 rides · Analyzed June 2026</p>
+  <p style="margin-top:6px;">Author: <strong>Sahan K.</strong></p>
+</div>
+
+<!-- ═══════════════════════════ CHARTS ═══════════════════════════ -->
+<script>
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.color = '#6c757d';
+
+const MEMBER = '#0e7c7b';
+const CASUAL = '#f4a261';
+const MEMBER_ALPHA = 'rgba(14,124,123,0.15)';
+const CASUAL_ALPHA = 'rgba(244,162,97,0.15)';
+
+// 1. Donut
+new Chart(document.getElementById('donutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Annual Members', 'Casual Riders'],
+    datasets: [{
+      data: [3747384, 2095447],
+      backgroundColor: [MEMBER, CASUAL],
+      borderWidth: 0,
+      hoverOffset: 4
+    }]
+  },
+  options: {
+    cutout: '72%',
+    plugins: { legend: { display: false }, tooltip: { callbacks: {
+      label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${(ctx.parsed/5842831*100).toFixed(1)}%)`
+    }}}
+  }
+});
+
+// 2. Duration bar
+new Chart(document.getElementById('durationChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Average (mean)', 'Typical (median)'],
+    datasets: [
+      { label: 'Annual Member', data: [12.1, 8.6], backgroundColor: MEMBER, borderRadius: 6 },
+      { label: 'Casual Rider', data: [18.9, 11.2], backgroundColor: CASUAL, borderRadius: 6 }
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+    scales: {
+      x: { beginAtZero: true, title: { display: true, text: 'Minutes' }, grid: { color: '#f0f0f0' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// 3. Day of week grouped bar
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+new Chart(document.getElementById('dowChart'), {
+  type: 'bar',
+  data: {
+    labels: days,
+    datasets: [
+      { label: 'Annual Member', data: [527115,592396,594283,601366,548561,469412,414251], backgroundColor: MEMBER, borderRadius: 4 },
+      { label: 'Casual Rider', data: [244717,234389,236046,266553,322632,431737,359373], backgroundColor: CASUAL, borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => (v/1000)+'k' }, grid: { color: '#f0f0f0' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// 4. Avg duration by day
+new Chart(document.getElementById('dowAvgChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      { label: 'Annual Member', data: [11.8,11.6,11.6,11.6,12.0,13.2,13.2], borderColor: MEMBER, backgroundColor: MEMBER_ALPHA, tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6 },
+      { label: 'Casual Rider', data: [19.0,16.5,15.7,16.5,18.4,21.2,21.9], borderColor: CASUAL, backgroundColor: CASUAL_ALPHA, tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+    scales: {
+      y: { title: { display: true, text: 'Minutes' }, grid: { color: '#f0f0f0' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// 5. Hourly
+const hours = Array.from({length:24}, (_,i) => i+'h');
+const memberHourly = [33954,20902,12616,8219,9192,36083,105733,210185,273069,174036,148912,174261,198445,194865,198474,250140,355307,404857,313230,217287,151787,117895,85131,52804];
+const casualHourly  = [41378,26684,17707,9811,7781,12271,27720,51372,73940,72983,88097,112327,133327,137942,145428,161488,185315,200633,171681,129199,93759,79568,67246,47790];
+new Chart(document.getElementById('hourlyChart'), {
+  type: 'line',
+  data: {
+    labels: hours,
+    datasets: [
+      { label: 'Annual Member', data: memberHourly, borderColor: MEMBER, backgroundColor: MEMBER_ALPHA, tension: 0.4, fill: true, pointRadius: 2 },
+      { label: 'Casual Rider', data: casualHourly, borderColor: CASUAL, backgroundColor: CASUAL_ALPHA, tension: 0.4, fill: true, pointRadius: 2 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => (v/1000).toFixed(0)+'k' }, grid: { color: '#f0f0f0' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// 6. Monthly
+const months = ['Jan\'25','Jun\'25','Jul\'25','Aug\'25','Sep\'25','Oct\'25','Nov\'25','Dec\'25','Jan\'26','Feb\'26','Mar\'26','Apr\'26','May\'26'];
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      { label: 'Annual Member', data: [41,386709,439965,452355,449202,421921,257292,112415,112933,160251,229121,316695,408484], borderColor: MEMBER, backgroundColor: MEMBER_ALPHA, tension: 0.4, fill: true, pointRadius: 4 },
+      { label: 'Casual Rider', data: [116,291138,322505,337246,264772,223569,98871,28005,24656,41088,87631,131231,244619], borderColor: CASUAL, backgroundColor: CASUAL_ALPHA, tension: 0.4, fill: true, pointRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => (v/1000).toFixed(0)+'k' }, grid: { color: '#f0f0f0' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// 7. Bike type grouped bar
+new Chart(document.getElementById('bikeChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Classic Bike', 'Electric Bike'],
+    datasets: [
+      { label: 'Annual Member', data: [1283135, 2464249], backgroundColor: MEMBER, borderRadius: 6 },
+      { label: 'Casual Rider', data: [657201, 1438246], backgroundColor: CASUAL, borderRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => (v/1e6).toFixed(1)+'M' }, grid: { color: '#f0f0f0' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+
+</body>
+</html>
